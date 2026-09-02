@@ -1,0 +1,15 @@
+# Data — never committed. Real or synthetic registrant data lives here only.
+/data/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+*.tsbuildinfo
+
+# Misc
+.DS_Store
+*.log
