@@ -98,11 +98,20 @@ function toFeatureCollection(points: MapPoint[]): GeoJSON.FeatureCollection {
           projectedGraduation: p.projectedGraduation,
           monthsToGraduation: p.monthsToGraduation,
           bookLanguage: p.bookLanguage,
+          registrationType: p.registrationType,
+          registrationDate: p.registrationDate,
+          lppGroup: p.lppGroup,
           graduated: p.graduated,
           welcomeBook: p.welcomeBook,
+          emailCommunication: p.emailCommunication,
+          addressChangedAt: p.addressChangedAt,
           city: p.city,
           county: p.county,
+          state: p.state,
           zipcode: p.zipcode,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          geocodeAccuracy: p.geocodeAccuracy,
           geocodeAccuracyType: p.geocodeAccuracyType ?? "unknown",
           geocodeStale: p.geocodeStale ?? false,
         },
@@ -114,6 +123,7 @@ export default function MapView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
   const [selected, setSelected] = useState<GeoJSON.GeoJsonProperties | null>(null);
+  const [detailTab, setDetailTab] = useState<"registrant" | "location">("registrant");
   const [pointCount, setPointCount] = useState<number | null>(null);
   const [missingCoordCount, setMissingCoordCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -388,6 +398,7 @@ export default function MapView() {
         if (drawModeRef.current) return;
         const props = e.features?.[0]?.properties ?? null;
         setSelected(props);
+        setDetailTab("registrant");
       });
 
       // Polygon-draw overlay: an empty source now, filled in by the
@@ -641,7 +652,7 @@ export default function MapView() {
       )}
 
       {selected && (
-        <div className="absolute right-3 top-3 z-10 w-72 rounded bg-white p-4 text-sm shadow-lg">
+        <div className="absolute right-3 top-3 z-10 w-80 rounded bg-white p-4 text-sm shadow-lg">
           <button
             className="float-right text-gray-400 hover:text-gray-600"
             onClick={() => setSelected(null)}
@@ -650,25 +661,45 @@ export default function MapView() {
             ✕
           </button>
           <h2 className="mb-2 font-semibold">Registrant {String(selected.childId)}</h2>
-          <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
-            <Field label="Age group" value={selected.ageGroup} />
-            <Field label="Months registered" value={selected.monthsRegistered} />
-            <Field label="Projected graduation" value={selected.projectedGraduation} />
-            <Field label="Months to graduation" value={selected.monthsToGraduation} />
-            <Field label="Program partner" value={selected.programPartner} />
-            <Field label="Book language" value={selected.bookLanguage} />
-            <Field label="Graduated" value={selected.graduated ? "Yes" : "No"} />
-            <Field label="Welcome book" value={selected.welcomeBook ? "Yes" : "No"} />
-            <Field label="City" value={selected.city} />
-            <Field label="County" value={selected.county} />
-            <Field label="ZIP" value={selected.zipcode} />
-            <Field label="Geocode accuracy" value={selected.geocodeAccuracyType} />
-          </dl>
-          {selected.geocodeStale ? (
-            <p className="mt-2 rounded bg-red-50 px-2 py-1 text-red-700">
-              Address changed after the last geocode run — location may be stale.
-            </p>
-          ) : null}
+          <div className="mb-2 flex gap-1 border-b">
+            <TabButton label="Registrant" active={detailTab === "registrant"} onClick={() => setDetailTab("registrant")} />
+            <TabButton label="Location" active={detailTab === "location"} onClick={() => setDetailTab("location")} />
+          </div>
+          {detailTab === "registrant" ? (
+            <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
+              <Field label="Program partner" value={selected.programPartner} />
+              <Field label="Registration type" value={selected.registrationType} />
+              <Field label="Registration date" value={selected.registrationDate} />
+              <Field label="Age group" value={selected.ageGroup} />
+              <Field label="Months registered" value={selected.monthsRegistered} />
+              <Field label="Projected graduation" value={selected.projectedGraduation} />
+              <Field label="Months to graduation" value={selected.monthsToGraduation} />
+              <Field label="Book language" value={selected.bookLanguage} />
+              <Field label="LPP group" value={selected.lppGroup} />
+              <Field label="Graduated" value={selected.graduated ? "Yes" : "No"} />
+              <Field label="Welcome book" value={selected.welcomeBook ? "Yes" : "No"} />
+              <Field label="Email communication" value={selected.emailCommunication ? "Yes" : "No"} />
+              <Field label="Address last changed" value={selected.addressChangedAt} />
+            </dl>
+          ) : (
+            <>
+              <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
+                <Field label="City" value={selected.city} />
+                <Field label="County" value={selected.county} />
+                <Field label="State" value={selected.state} />
+                <Field label="ZIP" value={selected.zipcode} />
+                <Field label="Latitude" value={selected.latitude} />
+                <Field label="Longitude" value={selected.longitude} />
+                <Field label="Geocode accuracy type" value={selected.geocodeAccuracyType} />
+                <Field label="Geocode accuracy score" value={selected.geocodeAccuracy} />
+              </dl>
+              {selected.geocodeStale ? (
+                <p className="mt-2 rounded bg-red-50 px-2 py-1 text-red-700">
+                  Address changed after the last geocode run — location may be stale.
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
       )}
 
@@ -741,6 +772,30 @@ function SortHeader({
     >
       {label} {active ? (sortAsc ? "▲" : "▼") : ""}
     </th>
+  );
+}
+
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="px-2 pb-1.5 text-xs"
+      style={
+        active
+          ? { color: "#2a78d6", borderBottom: "2px solid #2a78d6", fontWeight: 600 }
+          : { color: "#898781", borderBottom: "2px solid transparent" }
+      }
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }
 

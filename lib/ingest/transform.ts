@@ -1,9 +1,12 @@
 /**
  * Pure CSV parsing, join, and row-shaping logic — no I/O beyond reading a
- * file, no database. Shared by scripts/ingest.ts (loads Postgres) and
- * lib/data/points.ts (serves the Milestone 2 map directly from the CSVs
- * until a Postgres connection is available). See DATA_DICTIONARY.md for the
- * field dispositions this enforces.
+ * file, no database. Row-shaping and join are format-agnostic (operate on
+ * already-parsed Record<string, string>[] rows), so they're shared by the
+ * xlsx-backed readers in lib/ingest/xlsx.ts as well as any future CSV path.
+ * Shared by scripts/ingest.ts (loads Postgres) and lib/data/points.ts
+ * (serves the Milestone 2 map directly from DPData.xlsx until a Postgres
+ * connection is available). See DATA_DICTIONARY.md for the field
+ * dispositions this enforces.
  */
 import { readFileSync } from "node:fs";
 import { findBlockGroupGeoid } from "../geo/block-groups";
@@ -124,6 +127,7 @@ export interface RegistrantInsert {
   projectedGraduation: string | null;
   monthsToGraduation: number | null;
   bookLanguage: string | null;
+  emailCommunication: boolean | null;
   city: string | null;
   county: string | null;
   state: string | null;
@@ -184,6 +188,9 @@ export function buildRegistrantInsert(
       ? numField(registrant, "MONTHS TO GRADUATION")
       : null,
     bookLanguage: registrant ? field(registrant, "BOOK LANGUAGE") : null,
+    emailCommunication: registrant
+      ? boolField(registrant, "EMAIL COMMUNICATION")
+      : null,
     city: geocode ? field(geocode, "CITY") : null,
     county: geocode ? field(geocode, "COUNTY") : null,
     state: geocode ? field(geocode, "STATE") : null,

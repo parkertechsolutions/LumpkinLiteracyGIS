@@ -150,6 +150,7 @@ describe("buildRegistrantInsert", () => {
         "projectedGraduation",
         "monthsToGraduation",
         "bookLanguage",
+        "emailCommunication",
         "city",
         "county",
         "state",

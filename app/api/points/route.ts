@@ -10,7 +10,7 @@ export async function GET() {
   if (!role || !roleAtLeast(role, "staff")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const points = loadMapPoints();
+  const points = await loadMapPoints();
   return NextResponse.json(points, {
     headers: { "Cache-Control": "private, no-store" },
   });

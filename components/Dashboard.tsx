@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { MapPoint } from "@/lib/data/points";
 
 // Palette per the dataviz skill's validated reference (references/palette.md):
@@ -22,16 +25,19 @@ const ACCURACY_COLORS: Record<string, string> = {
 
 export type FilterDimension =
   | "county"
+  | "state"
   | "ageGroup"
   | "bookLanguage"
   | "registrationType"
   | "lppGroup"
   | "geocodeAccuracyType"
   | "graduated"
-  | "welcomeBook";
+  | "welcomeBook"
+  | "emailCommunication";
 
 export const DIMENSION_LABELS: Record<FilterDimension, string> = {
   county: "County",
+  state: "State",
   ageGroup: "Age group",
   bookLanguage: "Book language",
   registrationType: "Registration type",
@@ -39,7 +45,13 @@ export const DIMENSION_LABELS: Record<FilterDimension, string> = {
   geocodeAccuracyType: "Geocode accuracy",
   graduated: "Graduated",
   welcomeBook: "Welcome book",
+  emailCommunication: "Email communication",
 };
+
+// Groups the breakdowns below into tabs mirroring the two source sheets
+// (registrant "Data" fields vs. "GeoCode Info" fields), matching the detail
+// popup's tabs in MapView.
+export type DetailTab = "registrant" | "location";
 
 // Single source of truth for "what string represents this point on this
 // dimension" — used both to build the bars below and, in MapView, to decide
@@ -47,6 +59,7 @@ export const DIMENSION_LABELS: Record<FilterDimension, string> = {
 // place means a bar's label and the filter it sets can never drift apart.
 export const DIMENSION_ACCESSORS: Record<FilterDimension, (p: MapPoint) => string> = {
   county: (p) => p.county ?? "(none)",
+  state: (p) => p.state ?? "(none)",
   ageGroup: (p) => p.ageGroup ?? "(none)",
   bookLanguage: (p) => p.bookLanguage ?? "(none)",
   registrationType: (p) => p.registrationType ?? "(none)",
@@ -54,6 +67,7 @@ export const DIMENSION_ACCESSORS: Record<FilterDimension, (p: MapPoint) => strin
   geocodeAccuracyType: (p) => p.geocodeAccuracyType ?? "(none)",
   graduated: (p) => (p.graduated ? "Yes" : "No"),
   welcomeBook: (p) => (p.welcomeBook ? "Yes" : "No"),
+  emailCommunication: (p) => (p.emailCommunication ? "Yes" : "No"),
 };
 
 export type FilterState = Partial<Record<FilterDimension, Set<string>>>;
@@ -166,6 +180,7 @@ export default function Dashboard({
   filteredCount: number;
   onClose: () => void;
 }) {
+  const [filterTab, setFilterTab] = useState<DetailTab>("registrant");
   const total = points.length;
   const mapped = points.filter((p) => p.latitude !== null).length;
   const stale = points.filter((p) => p.geocodeStale).length;
@@ -232,65 +247,121 @@ export default function Dashboard({
         different rows narrow further (e.g. Spanish + age 1 + age 2).
       </p>
 
-      <div className="space-y-4">
-        <BarBreakdown
-          title={`County (${countBy(points, "county").length})`}
-          dimension="county"
-          data={countBy(points, "county")}
-          active={filters.county ?? new Set()}
-          onToggle={onToggleFilter}
+      <div className="mb-2 flex gap-1 border-b">
+        <FilterTabButton
+          label="Registrant"
+          active={filterTab === "registrant"}
+          onClick={() => setFilterTab("registrant")}
         />
-        <BarBreakdown
-          title="Age group"
-          dimension="ageGroup"
-          data={countBy(points, "ageGroup")}
-          active={filters.ageGroup ?? new Set()}
-          onToggle={onToggleFilter}
-        />
-        <BarBreakdown
-          title="Book language"
-          dimension="bookLanguage"
-          data={countBy(points, "bookLanguage")}
-          active={filters.bookLanguage ?? new Set()}
-          onToggle={onToggleFilter}
-        />
-        <BarBreakdown
-          title="Registration type"
-          dimension="registrationType"
-          data={countBy(points, "registrationType")}
-          active={filters.registrationType ?? new Set()}
-          onToggle={onToggleFilter}
-        />
-        <BarBreakdown
-          title="LPP group"
-          dimension="lppGroup"
-          data={countBy(points, "lppGroup")}
-          active={filters.lppGroup ?? new Set()}
-          onToggle={onToggleFilter}
-        />
-        <BarBreakdown
-          title="Geocode accuracy"
-          dimension="geocodeAccuracyType"
-          data={countBy(points, "geocodeAccuracyType")}
-          active={filters.geocodeAccuracyType ?? new Set()}
-          onToggle={onToggleFilter}
-          colorFor={(label) => ACCURACY_COLORS[label] ?? "#999999"}
-        />
-        <BarBreakdown
-          title="Graduated"
-          dimension="graduated"
-          data={countBy(points, "graduated")}
-          active={filters.graduated ?? new Set()}
-          onToggle={onToggleFilter}
-        />
-        <BarBreakdown
-          title="Welcome book"
-          dimension="welcomeBook"
-          data={countBy(points, "welcomeBook")}
-          active={filters.welcomeBook ?? new Set()}
-          onToggle={onToggleFilter}
+        <FilterTabButton
+          label="Location"
+          active={filterTab === "location"}
+          onClick={() => setFilterTab("location")}
         />
       </div>
+
+      {filterTab === "registrant" ? (
+        <div className="space-y-4">
+          <BarBreakdown
+            title="Age group"
+            dimension="ageGroup"
+            data={countBy(points, "ageGroup")}
+            active={filters.ageGroup ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Book language"
+            dimension="bookLanguage"
+            data={countBy(points, "bookLanguage")}
+            active={filters.bookLanguage ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Registration type"
+            dimension="registrationType"
+            data={countBy(points, "registrationType")}
+            active={filters.registrationType ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="LPP group"
+            dimension="lppGroup"
+            data={countBy(points, "lppGroup")}
+            active={filters.lppGroup ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Graduated"
+            dimension="graduated"
+            data={countBy(points, "graduated")}
+            active={filters.graduated ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Welcome book"
+            dimension="welcomeBook"
+            data={countBy(points, "welcomeBook")}
+            active={filters.welcomeBook ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Email communication"
+            dimension="emailCommunication"
+            data={countBy(points, "emailCommunication")}
+            active={filters.emailCommunication ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <BarBreakdown
+            title={`County (${countBy(points, "county").length})`}
+            dimension="county"
+            data={countBy(points, "county")}
+            active={filters.county ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="State"
+            dimension="state"
+            data={countBy(points, "state")}
+            active={filters.state ?? new Set()}
+            onToggle={onToggleFilter}
+          />
+          <BarBreakdown
+            title="Geocode accuracy"
+            dimension="geocodeAccuracyType"
+            data={countBy(points, "geocodeAccuracyType")}
+            active={filters.geocodeAccuracyType ?? new Set()}
+            onToggle={onToggleFilter}
+            colorFor={(label) => ACCURACY_COLORS[label] ?? "#999999"}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function FilterTabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="px-2 pb-1.5 text-xs"
+      style={
+        active
+          ? { color: ACCENT, borderBottom: `2px solid ${ACCENT}`, fontWeight: 600 }
+          : { color: INK_MUTED, borderBottom: "2px solid transparent" }
+      }
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }

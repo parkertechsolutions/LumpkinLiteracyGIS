@@ -8,7 +8,7 @@ export async function GET() {
   if (!role) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const geojson = loadAggregateGeoJson();
+  const geojson = await loadAggregateGeoJson();
   return NextResponse.json(geojson, {
     headers: { "Cache-Control": "private, no-store" },
   });

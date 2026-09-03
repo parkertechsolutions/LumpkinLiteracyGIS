@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { readCsvFile, joinByChildId, buildRegistrantInsert } from "../ingest/transform";
+import { joinByChildId, buildRegistrantInsert } from "../ingest/transform";
+import { loadDpDataRows } from "../ingest/xlsx";
 
 /**
  * Viewer-role data: counts by census block group, nothing else. FR-6/FR-8 —
@@ -8,8 +9,8 @@ import { readCsvFile, joinByChildId, buildRegistrantInsert } from "../ingest/tra
  * no count at all rather than a suppressed placeholder, since even "this
  * area has 1-4 registrants" is more than a Viewer is entitled to know.
  *
- * Same CSV-backed stand-in as lib/data/points.ts — see that file's header
- * comment for why, and for the plan to swap this for a real Postgres
+ * Same DPData.xlsx-backed stand-in as lib/data/points.ts — see that file's
+ * header comment for why, and for the plan to swap this for a real Postgres
  * GROUP BY once Milestone 4/5 need it for real.
  */
 const GEOCODE_RUN_DATE = new Date(process.env.GEOCODE_RUN_DATE ?? "2026-08-15");
@@ -21,9 +22,8 @@ interface BlockGroupFeature {
   geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
 }
 
-export function loadAggregateGeoJson(): GeoJSON.FeatureCollection {
-  const registrantRows = readCsvFile(path.join(process.cwd(), "data", "registrants.csv"));
-  const geocodeRows = readCsvFile(path.join(process.cwd(), "data", "geocode.csv"));
+export async function loadAggregateGeoJson(): Promise<GeoJSON.FeatureCollection> {
+  const { registrantRows, geocodeRows } = await loadDpDataRows();
   const join = joinByChildId(registrantRows, geocodeRows);
 
   const counts = new Map<string, number>();
