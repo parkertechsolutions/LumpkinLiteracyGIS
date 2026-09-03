@@ -21,7 +21,12 @@ export default function SignInPage() {
             .toLowerCase();
           const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
           if (existing) {
-            await signIn("nodemailer", formData);
+            // redirectTo is pinned to "/" rather than left to signIn()'s
+            // Referer-header fallback — otherwise whatever page the sign-in
+            // form happened to be submitted from (e.g. /access-denied) gets
+            // baked into the magic-link email and reused as the post-verify
+            // destination.
+            await signIn("nodemailer", { email, redirectTo: "/" });
           } else {
             redirect("/sign-in/check-email");
           }
