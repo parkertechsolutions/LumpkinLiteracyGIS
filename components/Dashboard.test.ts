@@ -18,6 +18,8 @@ function point(overrides: Partial<MapPoint>): MapPoint {
     welcomeBook: false,
     emailCommunication: true,
     addressChangedAt: "2024-01-01",
+    addressLine1: "358 Fortner Dr",
+    addressLine2: null,
     city: "Dahlonega",
     county: "Lumpkin",
     state: "GA",

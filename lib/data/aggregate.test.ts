@@ -1,16 +1,27 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import type { PGlite } from "@electric-sql/pglite";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createTestDb } from "../db/test-helpers";
 import { loadAggregateGeoJson } from "./aggregate";
 
-// Runs against the real synthetic data/DPData.xlsx — same fixture the other
-// data-layer tests use. This is FR-8 / DATA_HANDLING.md's suppression rule:
-// no area below the threshold should be visible at all, not even as a
-// placeholder with no value.
+// Runs against a real Postgres instance (PGlite) seeded from the synthetic
+// DPData.xlsx via the real ingest pipeline — see lib/db/test-helpers.ts,
+// same fixture the other data-layer tests use. This is FR-8 /
+// DATA_HANDLING.md's suppression rule: no area below the threshold should
+// be visible at all, not even as a placeholder with no value.
 const SUPPRESSION_THRESHOLD = 5;
+
+let client: PGlite;
 
 describe("loadAggregateGeoJson", () => {
   let result: GeoJSON.FeatureCollection;
   beforeAll(async () => {
-    result = await loadAggregateGeoJson();
+    const testDb = await createTestDb();
+    client = testDb.client;
+    result = await loadAggregateGeoJson(testDb.db);
+  });
+
+  afterAll(async () => {
+    await client.close();
   });
 
   it("returns a GeoJSON FeatureCollection", () => {

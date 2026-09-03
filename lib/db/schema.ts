@@ -31,6 +31,14 @@ export const registrants = pgTable("registrants", {
   projectedGraduation: date("projected_graduation"),
   monthsToGraduation: integer("months_to_graduation"),
   bookLanguage: text("book_language"),
+  emailCommunication: boolean("email_communication"),
+  // Promoted from ADMIN to STAFF on 2026-09-03 at explicit client
+  // instruction: the map already plots the exact geocoded point for every
+  // Staff-visible record, so the address string isn't materially more
+  // sensitive than what's already shown. ZIP+4 stays ADMIN-only — see
+  // registrant_identity below — since it wasn't part of that decision.
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
   city: text("city"),
   county: text("county"),
   state: text("state"),
@@ -45,7 +53,9 @@ export const registrants = pgTable("registrants", {
 });
 
 // Separate table so no ordinary query can accidentally select identity
-// fields. Admin reveal only.
+// fields. Reveal endpoint only (Admin and Host — see lib/auth/role.ts).
+// birthMonth/birthDay/birthYear/phone/parent* were promoted here from DROP
+// on 2026-09-03 at explicit client instruction — see DATA_DICTIONARY.md.
 export const registrantIdentity = pgTable("registrant_identity", {
   childId: text("child_id")
     .primaryKey()
@@ -53,9 +63,15 @@ export const registrantIdentity = pgTable("registrant_identity", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   middleInitial: text("middle_initial"),
-  addressLine1: text("address_line1"),
-  addressLine2: text("address_line2"),
   zipcodePlus4: text("zipcode_plus4"),
+  birthMonth: integer("birth_month"),
+  birthDay: integer("birth_day"),
+  birthYear: integer("birth_year"),
+  phone: text("phone"),
+  parent1FirstName: text("parent1_first_name"),
+  parent1LastName: text("parent1_last_name"),
+  parent2FirstName: text("parent2_first_name"),
+  parent2LastName: text("parent2_last_name"),
 });
 
 // ---------------------------------------------------------------------------
@@ -72,7 +88,7 @@ export const users = pgTable("user", {
   email: text("email").unique().notNull(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
-  role: text("role"), // 'viewer' | 'staff' | 'admin' | null — validated in code, not the DB
+  role: text("role"), // 'viewer' | 'staff' | 'admin' | 'host' | null — validated in code, not the DB
 });
 
 export const accounts = pgTable(

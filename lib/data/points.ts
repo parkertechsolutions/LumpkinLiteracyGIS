@@ -1,16 +1,17 @@
-import { joinByChildId, buildRegistrantInsert } from "../ingest/transform";
-import { loadDpDataRows } from "../ingest/xlsx";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import { registrants } from "../db/schema";
+import type * as schema from "../db/schema";
 
 /**
- * Milestone 2 stand-in for a Postgres query: reads DPData.xlsx, in-memory,
- * on every request. No DATABASE_URL is wired up yet. Swap this for a real
- * `/api/points` query against the `registrants` table once Milestone 4/5
- * need server-side role filtering — this file has no caller outside
- * app/api/points, so it's a contained swap.
- *
- * Field list is every STAFF-disposition field in DATA_DICTIONARY.md — the
- * full registrant + geocode column set, minus anything DROP/HOLD/ADMIN/
- * INTERNAL. No ADMIN identity field (name, address) is read here at all.
+ * Staff/Admin query: every STAFF-disposition field in DATA_DICTIONARY.md —
+ * the full registrant + geocode column set, minus anything DROP/HOLD/ADMIN/
+ * INTERNAL. addressLine1/addressLine2 were promoted from ADMIN to STAFF on
+ * 2026-09-03 (explicit client instruction: the map already plots the exact
+ * point for every one of these records, so the address string isn't
+ * materially more sensitive) and live on `registrants` itself now, not
+ * `registrant_identity`. Name, DOB, phone, parent names, and ZIP+4 remain
+ * ADMIN-only and are never read here — that stays in the separate
+ * registrant_identity table this module never touches.
  */
 export interface MapPoint {
   childId: string;
@@ -27,6 +28,8 @@ export interface MapPoint {
   welcomeBook: boolean | null;
   emailCommunication: boolean | null;
   addressChangedAt: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
   city: string | null;
   county: string | null;
   state: string | null;
@@ -38,42 +41,43 @@ export interface MapPoint {
   geocodeStale: boolean | null;
 }
 
-const GEOCODE_RUN_DATE = new Date(process.env.GEOCODE_RUN_DATE ?? "2026-08-15");
+// Accepts either the real node-postgres-backed client or a PGlite-backed
+// one built from the same schema (points.test.ts), so the query below can
+// be exercised against a real, ephemeral Postgres instead of mocked. The
+// real client is imported lazily (only when no db is passed in) so that
+// requiring DATABASE_URL to exist — lib/db/client.ts throws at import time
+// if it's unset — doesn't block tests that always supply their own db.
+type AppDb = PgDatabase<any, typeof schema>;
 
-export async function loadMapPoints(): Promise<MapPoint[]> {
-  const { registrantRows, geocodeRows } = await loadDpDataRows();
-  const join = joinByChildId(registrantRows, geocodeRows);
-
-  const points: MapPoint[] = [];
-  for (const id of [...join.matched, ...join.registrantOnly]) {
-    const registrant = join.registrantById.get(id);
-    const geocode = join.geocodeById.get(id);
-    const row = buildRegistrantInsert(id, registrant, geocode, GEOCODE_RUN_DATE);
-    points.push({
-      childId: row.childId,
-      programPartner: row.programPartner,
-      ageGroup: row.ageGroup,
-      monthsRegistered: row.monthsRegistered,
-      projectedGraduation: row.projectedGraduation,
-      monthsToGraduation: row.monthsToGraduation,
-      bookLanguage: row.bookLanguage,
-      registrationType: row.registrationType,
-      registrationDate: row.registrationDate,
-      lppGroup: row.lppGroup,
-      graduated: row.graduated,
-      welcomeBook: row.welcomeBook,
-      emailCommunication: row.emailCommunication,
-      addressChangedAt: row.addressChangedAt,
-      city: row.city,
-      county: row.county,
-      state: row.state,
-      zipcode: row.zipcode,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      geocodeAccuracy: row.geocodeAccuracy,
-      geocodeAccuracyType: row.geocodeAccuracyType,
-      geocodeStale: row.geocodeStale,
-    });
-  }
-  return points;
+export async function loadMapPoints(db?: AppDb): Promise<MapPoint[]> {
+  const resolvedDb = db ?? (await import("../db/client")).db;
+  return resolvedDb
+    .select({
+      childId: registrants.childId,
+      programPartner: registrants.programPartner,
+      ageGroup: registrants.ageGroup,
+      monthsRegistered: registrants.monthsRegistered,
+      projectedGraduation: registrants.projectedGraduation,
+      monthsToGraduation: registrants.monthsToGraduation,
+      bookLanguage: registrants.bookLanguage,
+      registrationType: registrants.registrationType,
+      registrationDate: registrants.registrationDate,
+      lppGroup: registrants.lppGroup,
+      graduated: registrants.graduated,
+      welcomeBook: registrants.welcomeBook,
+      emailCommunication: registrants.emailCommunication,
+      addressChangedAt: registrants.addressChangedAt,
+      addressLine1: registrants.addressLine1,
+      addressLine2: registrants.addressLine2,
+      city: registrants.city,
+      county: registrants.county,
+      state: registrants.state,
+      zipcode: registrants.zipcode,
+      latitude: registrants.latitude,
+      longitude: registrants.longitude,
+      geocodeAccuracy: registrants.geocodeAccuracy,
+      geocodeAccuracyType: registrants.geocodeAccuracyType,
+      geocodeStale: registrants.geocodeStale,
+    })
+    .from(registrants);
 }

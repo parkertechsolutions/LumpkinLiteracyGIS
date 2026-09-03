@@ -19,7 +19,7 @@ export const GEOCODE_SHEET_NAME = "GeoCode Info";
 // { richText: [...] }. Everything downstream (normalizeId, field/boolField/
 // numField in transform.ts) expects a plain string, so every cell is
 // normalized here — this is the only place that distinction matters.
-function cellToString(value: ExcelJS.CellValue): string {
+export function cellToString(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === "object") {
@@ -33,6 +33,12 @@ function cellToString(value: ExcelJS.CellValue): string {
     }
     if ("text" in value) return String((value as { text: unknown }).text);
     if ("error" in value) return "";
+    // A shared-formula continuation cell ({ sharedFormula: "Y25" }) or a
+    // master formula cell whose result Excel didn't cache — either way,
+    // there's no computed value on the cell itself to fall back to. The
+    // generic `String(value)` below would otherwise stringify the object
+    // literally as the text "[object Object]" instead of an empty value.
+    return "";
   }
   return String(value);
 }

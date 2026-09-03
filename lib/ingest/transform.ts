@@ -110,9 +110,12 @@ function numField(row: Record<string, string>, name: string): number | null {
 
 // ---------------------------------------------------------------------------
 // Row shaping — the only place DROP/HOLD fields could leak in is here, by
-// selecting a column that isn't in this explicit list. Everything not named
-// below (PHONE, EMAIL, PARENT *, BIRTH MONTH/DAY/YEAR, BIRTH CODE,
-// ADDITIONAL INFORMATION 1-4) is deliberately never read.
+// selecting a column that isn't in this explicit list. PHONE, PARENT
+// */BIRTH MONTH/DAY/YEAR were promoted from DROP to ADMIN on 2026-09-03 (see
+// DATA_DICTIONARY.md) and are read into IdentityInsert only — never
+// RegistrantInsert, so they can never reach the Staff points response.
+// EMAIL, BIRTH CODE, and ADDITIONAL INFORMATION 1-4 remain DROP/HOLD and
+// are deliberately still never read anywhere.
 // ---------------------------------------------------------------------------
 export interface RegistrantInsert {
   childId: string;
@@ -128,6 +131,8 @@ export interface RegistrantInsert {
   monthsToGraduation: number | null;
   bookLanguage: string | null;
   emailCommunication: boolean | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
   city: string | null;
   county: string | null;
   state: string | null;
@@ -145,9 +150,15 @@ export interface IdentityInsert {
   firstName: string | null;
   lastName: string | null;
   middleInitial: string | null;
-  addressLine1: string | null;
-  addressLine2: string | null;
   zipcodePlus4: string | null;
+  birthMonth: number | null;
+  birthDay: number | null;
+  birthYear: number | null;
+  phone: string | null;
+  parent1FirstName: string | null;
+  parent1LastName: string | null;
+  parent2FirstName: string | null;
+  parent2LastName: string | null;
 }
 
 export function buildRegistrantInsert(
@@ -191,6 +202,8 @@ export function buildRegistrantInsert(
     emailCommunication: registrant
       ? boolField(registrant, "EMAIL COMMUNICATION")
       : null,
+    addressLine1: geocode ? field(geocode, "ADDRESS") : null,
+    addressLine2: geocode ? field(geocode, "ADDRESS 2") : null,
     city: geocode ? field(geocode, "CITY") : null,
     county: geocode ? field(geocode, "COUNTY") : null,
     state: geocode ? field(geocode, "STATE") : null,
@@ -217,9 +230,15 @@ export function buildIdentityInsert(
     firstName: registrant ? field(registrant, "FIRST NAME") : null,
     lastName: registrant ? field(registrant, "LAST NAME") : null,
     middleInitial: registrant ? field(registrant, "MIDDLE INITIAL") : null,
-    addressLine1: geocode ? field(geocode, "ADDRESS") : null,
-    addressLine2: geocode ? field(geocode, "ADDRESS 2") : null,
     zipcodePlus4: geocode ? field(geocode, "ZIPCODE+4") : null,
+    birthMonth: registrant ? numField(registrant, "BIRTH MONTH") : null,
+    birthDay: registrant ? numField(registrant, "BIRTH DAY") : null,
+    birthYear: registrant ? numField(registrant, "BIRTH YEAR") : null,
+    phone: registrant ? field(registrant, "PHONE") : null,
+    parent1FirstName: registrant ? field(registrant, "PARENT 1 FIRST NAME") : null,
+    parent1LastName: registrant ? field(registrant, "PARENT 1 LAST NAME") : null,
+    parent2FirstName: registrant ? field(registrant, "PARENT 2 FIRST NAME") : null,
+    parent2LastName: registrant ? field(registrant, "PARENT 2 LAST NAME") : null,
   };
 }
 

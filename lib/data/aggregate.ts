@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { joinByChildId, buildRegistrantInsert } from "../ingest/transform";
-import { loadDpDataRows } from "../ingest/xlsx";
+import { sql } from "drizzle-orm";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import { registrants } from "../db/schema";
+import type * as schema from "../db/schema";
 
 /**
  * Viewer-role data: counts by census block group, nothing else. FR-6/FR-8 —
@@ -9,12 +11,16 @@ import { loadDpDataRows } from "../ingest/xlsx";
  * no count at all rather than a suppressed placeholder, since even "this
  * area has 1-4 registrants" is more than a Viewer is entitled to know.
  *
- * Same DPData.xlsx-backed stand-in as lib/data/points.ts — see that file's
- * header comment for why, and for the plan to swap this for a real Postgres
- * GROUP BY once Milestone 4/5 need it for real.
+ * The count itself comes from a real `GROUP BY` in Postgres, not a
+ * client-computed tally — no individual record ever leaves the database for
+ * this role.
  */
-const GEOCODE_RUN_DATE = new Date(process.env.GEOCODE_RUN_DATE ?? "2026-08-15");
 const SUPPRESSION_THRESHOLD = 5;
+
+// The real client is imported lazily (only when no db is passed in) so that
+// requiring DATABASE_URL to exist — lib/db/client.ts throws at import time
+// if it's unset — doesn't block tests that always supply their own db.
+type AppDb = PgDatabase<any, typeof schema>;
 
 interface BlockGroupFeature {
   type: "Feature";
@@ -22,17 +28,22 @@ interface BlockGroupFeature {
   geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
 }
 
-export async function loadAggregateGeoJson(): Promise<GeoJSON.FeatureCollection> {
-  const { registrantRows, geocodeRows } = await loadDpDataRows();
-  const join = joinByChildId(registrantRows, geocodeRows);
+export async function loadAggregateGeoJson(
+  db?: AppDb
+): Promise<GeoJSON.FeatureCollection> {
+  const resolvedDb = db ?? (await import("../db/client")).db;
+  const rows = await resolvedDb
+    .select({
+      blockGroupGeoid: registrants.blockGroupGeoid,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(registrants)
+    .where(sql`${registrants.blockGroupGeoid} is not null`)
+    .groupBy(registrants.blockGroupGeoid);
 
   const counts = new Map<string, number>();
-  for (const id of [...join.matched, ...join.registrantOnly]) {
-    const registrant = join.registrantById.get(id);
-    const geocode = join.geocodeById.get(id);
-    const row = buildRegistrantInsert(id, registrant, geocode, GEOCODE_RUN_DATE);
-    if (!row.blockGroupGeoid) continue;
-    counts.set(row.blockGroupGeoid, (counts.get(row.blockGroupGeoid) ?? 0) + 1);
+  for (const row of rows) {
+    if (row.blockGroupGeoid) counts.set(row.blockGroupGeoid, row.n);
   }
 
   const boundaries = JSON.parse(

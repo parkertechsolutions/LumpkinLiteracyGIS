@@ -15,6 +15,27 @@
       "when": 1788354128314,
       "tag": "0001_typical_sharon_ventura",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788398597441,
+      "tag": "0002_add_email_communication",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788436740575,
+      "tag": "0003_add_identity_contact_dob_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788441772736,
+      "tag": "0004_move_address_to_registrants",
+      "breakpoints": true
     }
   ]
 }

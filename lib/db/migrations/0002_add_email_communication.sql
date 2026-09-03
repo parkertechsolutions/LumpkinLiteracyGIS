@@ -1,0 +1,1 @@
+ALTER TABLE "registrants" ADD COLUMN "email_communication" boolean;

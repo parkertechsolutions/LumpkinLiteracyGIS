@@ -151,6 +151,8 @@ describe("buildRegistrantInsert", () => {
         "monthsToGraduation",
         "bookLanguage",
         "emailCommunication",
+        "addressLine1",
+        "addressLine2",
         "city",
         "county",
         "state",
@@ -164,6 +166,11 @@ describe("buildRegistrantInsert", () => {
         "blockGroupGeoid",
       ].sort()
     );
+  });
+
+  it("carries the street address — promoted from ADMIN to STAFF disposition 2026-09-03", () => {
+    const result = buildRegistrantInsert("9218528", registrant, geocode, RUN_DATE);
+    expect(result.addressLine1).toBe(geocode.ADDRESS);
   });
 
   it("flags geocode_stale when the address changed after the geocode run date", () => {
@@ -201,19 +208,31 @@ describe("buildRegistrantInsert", () => {
 });
 
 describe("buildIdentityInsert", () => {
-  it("only carries name and address identity fields", () => {
-    const registrant: Record<string, string> = {
-      "FIRST NAME": "Zoey",
-      "LAST NAME": "Hammond",
-      "MIDDLE INITIAL": "Q",
-      PHONE: "706-974-4213",
-      EMAIL: "zoey.hammond@example.com",
-    };
-    const geocode: Record<string, string> = {
-      ADDRESS: "358 Fortner Dr",
-      "ADDRESS 2": "",
-      "ZIPCODE+4": "4074",
-    };
+  const registrant: Record<string, string> = {
+    "FIRST NAME": "Zoey",
+    "LAST NAME": "Hammond",
+    "MIDDLE INITIAL": "Q",
+    PHONE: "706-974-4213",
+    EMAIL: "zoey.hammond@example.com",
+    "BIRTH MONTH": "10",
+    "BIRTH DAY": "14",
+    "BIRTH YEAR": "2022",
+    "PARENT 1 FIRST NAME": "Ava",
+    "PARENT 1 LAST NAME": "Hammond",
+    "PARENT 2 FIRST NAME": "",
+    "PARENT 2 LAST NAME": "",
+  };
+  const geocode: Record<string, string> = {
+    // ADDRESS/ADDRESS 2 are read by buildRegistrantInsert now (STAFF
+    // disposition since 2026-09-03), not here — left in the fixture only
+    // because it mirrors a real GeoCode Info row; buildIdentityInsert
+    // ignores them.
+    ADDRESS: "358 Fortner Dr",
+    "ADDRESS 2": "",
+    "ZIPCODE+4": "4074",
+  };
+
+  it("carries name, ZIP+4, DOB, and contact identity fields — ADMIN disposition per DATA_DICTIONARY.md", () => {
     const result = buildIdentityInsert("9218528", registrant, geocode);
     expect(Object.keys(result).sort()).toEqual(
       [
@@ -221,12 +240,30 @@ describe("buildIdentityInsert", () => {
         "firstName",
         "lastName",
         "middleInitial",
-        "addressLine1",
-        "addressLine2",
         "zipcodePlus4",
+        "birthMonth",
+        "birthDay",
+        "birthYear",
+        "phone",
+        "parent1FirstName",
+        "parent1LastName",
+        "parent2FirstName",
+        "parent2LastName",
       ].sort()
     );
-    expect(Object.values(result)).not.toContain(registrant.PHONE);
+    expect(result.phone).toBe(registrant.PHONE);
+    expect(result.parent1FirstName).toBe(registrant["PARENT 1 FIRST NAME"]);
+    expect(result.birthYear).toBe(2022);
+  });
+
+  it("still never reads EMAIL — that field stays DROP", () => {
+    const result = buildIdentityInsert("9218528", registrant, geocode);
     expect(Object.values(result)).not.toContain(registrant.EMAIL);
+  });
+
+  it("no longer carries address — that moved to buildRegistrantInsert", () => {
+    const result = buildIdentityInsert("9218528", registrant, geocode);
+    expect(result).not.toHaveProperty("addressLine1");
+    expect(result).not.toHaveProperty("addressLine2");
   });
 });

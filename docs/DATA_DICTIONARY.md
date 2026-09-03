@@ -8,10 +8,12 @@ Classification and disposition for every field in the source data. "Disposition"
 
 **Dispositions:**
 - `DROP` — not stored by RCM. Removed at ingestion. Never reaches the database.
-- `STAFF` — stored; served to Staff and Admin.
-- `ADMIN` — stored in `registrant_identity`; served only via the logged reveal endpoint.
+- `STAFF` — stored; served to Staff, Admin, and Host as part of the ordinary points response.
+- `ADMIN` — stored in `registrant_identity`; served only via the logged reveal endpoint, to Admin and Host only (never Staff).
 - `INTERNAL` — stored and used server-side; not sent to any browser.
 - `HOLD` — excluded pending a client answer.
+
+**Roles (2026-09-03 update):** a fourth role, Host, was added above Admin. Host and Admin see identical data — both can reveal `ADMIN`-disposition fields for a single child via the logged reveal endpoint — but only Host can manage user accounts/roles. Staff sees `STAFF`-disposition fields only, never `ADMIN`.
 
 ---
 
@@ -26,24 +28,24 @@ Classification and disposition for every field in the source data. "Disposition"
 | LAST NAME | text | Direct identifier — minor | ADMIN | |
 | FIRST NAME | text | Direct identifier — minor | ADMIN | |
 | MIDDLE INITIAL | text | Direct identifier — minor | ADMIN | |
-| ADDRESS | text | Direct identifier — minor's home | ADMIN | Also used at ingestion for geocode verification |
-| ADDRESS 2 | text | Direct identifier — minor's home | ADMIN | |
+| ADDRESS | text | Direct identifier — minor's home | STAFF | 2026-09-03: promoted from ADMIN at explicit client instruction — the map already plots the exact geocoded point for every Staff-visible record, so the address string isn't materially more sensitive than what's already shown. Also used at ingestion for geocode verification |
+| ADDRESS 2 | text | Direct identifier — minor's home | STAFF | 2026-09-03: promoted from ADMIN, same basis as ADDRESS |
 | CITY | text | Quasi-identifier | STAFF | Coarse enough to serve; useful filter |
 | STATE | text | Non-sensitive | STAFF | |
 | COUNTY | text | Quasi-identifier | STAFF | Filter dimension |
 | ZIPCODE | text | Quasi-identifier | STAFF | 5-digit only |
 | ZIPCODE+4 | text | Near-address precision | ADMIN | ZIP+4 typically resolves to a block face or single building |
 | LAST TIME ADDRESS CHANGED | date | Non-sensitive | STAFF | Drives the stale-geocode flag |
-| PHONE | text | Contact PII | DROP | Not used by the application |
-| PARENT 1 LAST NAME | text | Direct identifier — adult | DROP | Not used by the application |
-| PARENT 1 FIRST NAME | text | Direct identifier — adult | DROP | |
-| PARENT 2 LAST NAME | text | Direct identifier — adult | DROP | |
-| PARENT 2 FIRST NAME | text | Direct identifier — adult | DROP | |
+| PHONE | text | Contact PII | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction — served via the reveal endpoint alongside name/address |
+| PARENT 1 LAST NAME | text | Direct identifier — adult | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction |
+| PARENT 1 FIRST NAME | text | Direct identifier — adult | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction |
+| PARENT 2 LAST NAME | text | Direct identifier — adult | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction |
+| PARENT 2 FIRST NAME | text | Direct identifier — adult | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction |
 | REGISTRATION DATE | date | Non-sensitive | STAFF | |
 | REGISTRATION TYPE | text | Non-sensitive | STAFF | Filter dimension |
-| BIRTH MONTH | integer | DOB component — minor | DROP | Age needs are met by AGE GROUP |
-| BIRTH DAY | integer | DOB component — minor | DROP | |
-| BIRTH YEAR | integer | DOB component — minor | DROP | |
+| BIRTH MONTH | integer | DOB component — minor | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction — served via the reveal endpoint only, still never part of the Staff points response |
+| BIRTH DAY | integer | DOB component — minor | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction, same basis as BIRTH MONTH |
+| BIRTH YEAR | integer | DOB component — minor | ADMIN | 2026-09-03: promoted from DROP at explicit client instruction, same basis as BIRTH MONTH |
 | BIRTH CODE | text | Unknown | HOLD | Needs a definition from the client before any decision |
 | ADDITIONAL INFORMATION 1 | text | Unknown freetext | HOLD | Inspect actual contents before including |
 | ADDITIONAL INFORMATION 2 | text | Unknown freetext | HOLD | |

@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { isValidRole, roleAtLeast } from "./role";
 
 describe("isValidRole", () => {
-  it("accepts the three defined roles", () => {
+  it("accepts the four defined roles", () => {
     expect(isValidRole("viewer")).toBe(true);
     expect(isValidRole("staff")).toBe(true);
     expect(isValidRole("admin")).toBe(true);
+    expect(isValidRole("host")).toBe(true);
   });
   it("rejects anything else, including a forged role from a request body", () => {
     expect(isValidRole("superadmin")).toBe(false);
@@ -18,12 +19,14 @@ describe("isValidRole", () => {
 });
 
 describe("roleAtLeast", () => {
-  it("orders viewer < staff < admin", () => {
+  it("orders viewer < staff < admin < host", () => {
     expect(roleAtLeast("admin", "viewer")).toBe(true);
     expect(roleAtLeast("admin", "staff")).toBe(true);
     expect(roleAtLeast("staff", "viewer")).toBe(true);
     expect(roleAtLeast("viewer", "staff")).toBe(false);
     expect(roleAtLeast("staff", "admin")).toBe(false);
+    expect(roleAtLeast("host", "admin")).toBe(true);
+    expect(roleAtLeast("admin", "host")).toBe(false);
   });
   it("treats equal roles as satisfying the minimum", () => {
     expect(roleAtLeast("staff", "staff")).toBe(true);

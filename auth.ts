@@ -54,6 +54,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 declare module "next-auth" {
   interface Session {
     user: {
+      // Not in DefaultSession["user"], but the database-session flow always
+      // populates it (@auth/core spreads the full adapter user, id
+      // included, into session.user before our callback runs).
+      id: string;
       role: Role | null;
     } & DefaultSession["user"];
   }

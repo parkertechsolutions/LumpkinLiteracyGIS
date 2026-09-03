@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadDpDataRows, readXlsxSheet } from "./xlsx";
+import { cellToString, loadDpDataRows, readXlsxSheet } from "./xlsx";
 
 // Builds a small in-memory workbook covering the cell types DPData.xlsx
 // actually contains — plain text, a numeric id, a Y/N flag, a real Date
@@ -59,6 +59,28 @@ describe("readXlsxSheet", () => {
 
   it("throws when the sheet name doesn't exist", async () => {
     await expect(readXlsxSheet(filePath, "Nope")).rejects.toThrow(/Sheet "Nope" not found/);
+  });
+});
+
+// ExcelJS's writer can't produce a shared-formula-without-cached-result cell
+// (workbook.xlsx.writeFile throws on it), even though its reader happily
+// returns that exact shape from a real file — DPData.xlsx's AGE GROUP
+// column (computed as YEAR(TODAY())-BIRTH YEAR) has it for ~8% of rows,
+// wherever the generating tool didn't cache a shared formula's result.
+// Exercised directly against cellToString rather than a fixture round-trip.
+describe("cellToString", () => {
+  it("converts an uncached shared-formula cell to an empty string, not '[object Object]'", () => {
+    expect(cellToString({ sharedFormula: "Y1" } as unknown as ExcelJS.CellValue)).toBe("");
+  });
+
+  it("converts a master formula cell with no cached result to an empty string", () => {
+    expect(
+      cellToString({
+        formula: "YEAR(TODAY())-R25",
+        ref: "Y25:Y88",
+        shareType: "shared",
+      } as unknown as ExcelJS.CellValue)
+    ).toBe("");
   });
 });
 

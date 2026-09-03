@@ -24,22 +24,31 @@ import * as schema from "../lib/db/schema";
 import { joinByChildId, buildRegistrantInsert, buildIdentityInsert } from "../lib/ingest/transform";
 import { loadDpDataRows } from "../lib/ingest/xlsx";
 
-const FORBIDDEN_COLUMNS = [
-  "phone",
+// email_communication is DATA_DICTIONARY.md's own STAFF-disposition flag
+// (distinct from the DROP-disposition "email" address column) — it belongs
+// in the schema, so it's deliberately not in either list below.
+//
+// phone/parent_1_*/parent_2_*/birth_month/birth_day/birth_year were
+// promoted from DROP to ADMIN on 2026-09-03 (explicit client instruction —
+// see DATA_DICTIONARY.md) and now legitimately live in registrant_identity
+// — forbidden everywhere ELSE, expected to be present there.
+const STILL_DROP_OR_HOLD_COLUMNS = [
   "email",
-  "email_communication",
-  "parent_1_first_name",
-  "parent_1_last_name",
-  "parent_2_first_name",
-  "parent_2_last_name",
-  "birth_month",
-  "birth_day",
-  "birth_year",
   "birth_code",
   "additional_information_1",
   "additional_information_2",
   "additional_information_3",
   "additional_information_4",
+];
+const ADMIN_ONLY_COLUMNS = [
+  "phone",
+  "parent1_first_name",
+  "parent1_last_name",
+  "parent2_first_name",
+  "parent2_last_name",
+  "birth_month",
+  "birth_day",
+  "birth_year",
 ];
 
 async function main() {
@@ -102,34 +111,57 @@ async function main() {
   console.log("");
 
   // --- Verification 2: DATA_HANDLING.md §6 item 8 — excluded columns absent ---
-  console.log("--- DATA_HANDLING.md §6 item 8: excluded columns absent from schema ---");
+  console.log("--- DATA_HANDLING.md §6 item 8: still-excluded columns absent from schema ---");
   const columnsResult = await db.execute<{ table_name: string; column_name: string }>(
     sql`select table_name, column_name from information_schema.columns
         where table_schema = 'public' and table_name in ('registrants', 'registrant_identity', 'access_log')`
   );
   const actualColumns = columnsResult.rows.map((r) => r.column_name);
-  const found = FORBIDDEN_COLUMNS.filter((c) => actualColumns.includes(c));
+  const found = STILL_DROP_OR_HOLD_COLUMNS.filter((c) => actualColumns.includes(c));
   if (found.length === 0) {
     console.log(
-      `PASS — none of phone, email, parent name, or birth-date columns exist in any table (checked ${actualColumns.length} actual columns across 3 tables).`
+      `PASS — none of email, birth code, or additional-information columns exist in any table (checked ${actualColumns.length} actual columns across 3 tables).`
     );
   } else {
     console.log(`FAIL — found excluded columns in the live schema: ${found.join(", ")}`);
   }
   console.log("");
 
-  // --- Verification 3: identity fields are only reachable via registrant_identity ---
-  console.log("--- Identity fields isolated to registrant_identity ---");
+  // --- Verification 3: identity/PII fields (name, phone, parent names,
+  // DOB) are only reachable via registrant_identity, never registrants.
+  // Address is the one exception — promoted to STAFF disposition on
+  // 2026-09-03, so it's expected on registrants and absent from
+  // registrant_identity now. ---
+  console.log("--- Identity/PII fields isolated to registrant_identity (address excepted) ---");
   const registrantColumns = columnsResult.rows
     .filter((r) => r.table_name === "registrants")
     .map((r) => r.column_name);
-  const identityLeaked = ["first_name", "last_name", "address_line1"].filter((c) =>
+  const identityLeaked = ["first_name", "last_name", ...ADMIN_ONLY_COLUMNS].filter((c) =>
     registrantColumns.includes(c)
   );
   console.log(
     identityLeaked.length === 0
-      ? "PASS — registrants table has no name/address columns."
+      ? "PASS — registrants table has no name/contact/DOB columns."
       : `FAIL — identity fields leaked into registrants: ${identityLeaked.join(", ")}`
+  );
+  console.log(
+    registrantColumns.includes("address_line1") && registrantColumns.includes("address_line2")
+      ? "PASS — registrants table has address_line1/2 (STAFF disposition since 2026-09-03)."
+      : "FAIL — registrants table is missing address_line1/2."
+  );
+  const identityColumns = columnsResult.rows
+    .filter((r) => r.table_name === "registrant_identity")
+    .map((r) => r.column_name);
+  const identityMissing = ADMIN_ONLY_COLUMNS.filter((c) => !identityColumns.includes(c));
+  console.log(
+    identityMissing.length === 0
+      ? "PASS — registrant_identity has all the ADMIN-disposition contact/DOB columns."
+      : `FAIL — registrant_identity is missing: ${identityMissing.join(", ")}`
+  );
+  console.log(
+    !identityColumns.includes("address_line1") && !identityColumns.includes("address_line2")
+      ? "PASS — registrant_identity no longer carries address."
+      : "FAIL — address_line1/2 still present in registrant_identity."
   );
   console.log("");
 

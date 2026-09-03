@@ -57,10 +57,25 @@ export type DetailTab = "registrant" | "location";
 // dimension" — used both to build the bars below and, in MapView, to decide
 // which points a filter selection actually matches. Keeping them in one
 // place means a bar's label and the filter it sets can never drift apart.
+// AGE GROUP's source formula is YEAR(TODAY())-BIRTH YEAR — it's the child's
+// age in whole years, not a fixed code — so the valid range is a normal
+// human age span, bucketed at "18+" the way a lot of youth-program cohorts
+// cap out. countBy would only ever show whatever ages happen to be present
+// in the loaded data; this fixed label list is what makes every age 0-18+
+// show up (at 0, if nobody's currently that age) instead.
+export const AGE_GROUP_LABELS = [...Array.from({ length: 18 }, (_, i) => String(i)), "18+"];
+
+export function ageGroupBucket(raw: string | null): string {
+  if (raw === null || raw === "") return "(none)";
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return "(none)";
+  return n >= 18 ? "18+" : String(Math.trunc(n));
+}
+
 export const DIMENSION_ACCESSORS: Record<FilterDimension, (p: MapPoint) => string> = {
   county: (p) => p.county ?? "(none)",
   state: (p) => p.state ?? "(none)",
-  ageGroup: (p) => p.ageGroup ?? "(none)",
+  ageGroup: (p) => ageGroupBucket(p.ageGroup),
   bookLanguage: (p) => p.bookLanguage ?? "(none)",
   registrationType: (p) => p.registrationType ?? "(none)",
   lppGroup: (p) => p.lppGroup ?? "(none)",
@@ -86,6 +101,18 @@ function countBy(points: MapPoint[], dimension: FilterDimension): [string, numbe
   const counts = new Map<string, number>();
   for (const p of points) counts.set(fn(p), (counts.get(fn(p)) ?? 0) + 1);
   return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+// Every label in AGE_GROUP_LABELS, in that fixed 0..18+ order, even at a
+// count of 0 — unlike countBy, which only lists ages actually present.
+function ageGroupCounts(points: MapPoint[]): [string, number][] {
+  const counts = new Map(AGE_GROUP_LABELS.map((label) => [label, 0]));
+  for (const p of points) {
+    const bucket = DIMENSION_ACCESSORS.ageGroup(p);
+    const current = counts.get(bucket);
+    if (current !== undefined) counts.set(bucket, current + 1);
+  }
+  return AGE_GROUP_LABELS.map((label) => [label, counts.get(label)!]);
 }
 
 function StatTile({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -265,7 +292,7 @@ export default function Dashboard({
           <BarBreakdown
             title="Age group"
             dimension="ageGroup"
-            data={countBy(points, "ageGroup")}
+            data={ageGroupCounts(points)}
             active={filters.ageGroup ?? new Set()}
             onToggle={onToggleFilter}
           />
